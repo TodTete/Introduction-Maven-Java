@@ -1,17 +1,407 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    =====================================================================
+    POM = Project Object Model
+    =====================================================================
+    Es el archivo central de Maven. Aquí se describe:
+      1. La identidad del proyecto (coordenadas: groupId, artifactId, version).
+      2. Las propiedades (versión de Java, codificación, versiones de librerías).
+      3. Las dependencias (librerías que Maven descarga automáticamente).
+      4. El proceso de construcción (plugins que compilan, prueban y empaquetan).
+
+    Ciclo de vida "default" de Maven (cada fase ejecuta también las anteriores):
+      validate -> compile -> test -> package -> verify -> install -> deploy
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <!-- Versión del modelo del POM. Para Maven 3 siempre es 4.0.0 -->
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.todtete</groupId>
-    <artifactId>Introduction-Maven</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <!-- ================================================================
+         COORDENADAS: identifican de forma única a este artefacto.
+         El resultado final será: Introduction-Maven-1.0-SNAPSHOT.jar
+         ================================================================ -->
+    <groupId>org.todtete</groupId>                <!-- Organización / dominio invertido -->
+    <artifactId>Introduction-Maven</artifactId>   <!-- Nombre del proyecto -->
+    <version>1.0-SNAPSHOT</version>               <!-- SNAPSHOT = versión en desarrollo -->
+    <packaging>jar</packaging>                    <!-- Tipo de artefacto: jar, war, pom... -->
 
+    <name>Introduction Maven</name>
+    <description>Proyecto de introducción a Maven: dependencias, pruebas con JUnit y creación de artefactos.</description>
+
+    <!-- ================================================================
+         PROPIEDADES: variables reutilizables dentro del POM (${nombre}).
+         Centralizar versiones facilita actualizar librerías.
+         ================================================================ -->
     <properties>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
+        <!-- Versión de Java. "release" es preferible a source/target -->
+        <java.version>25</java.version>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- Codificación de los .properties filtrados (evita un aviso del resources-plugin) -->
+        <project.build.propertiesEncoding>UTF-8</project.build.propertiesEncoding>
+
+        <!-- Clase principal (usada por el jar, el shade y exec) -->
+        <main.class>org.todtete.Main</main.class>
+
+        <!-- Versiones de dependencias -->
+        <junit.version>6.0.3</junit.version>
+        <assertj.version>3.27.6</assertj.version>
+        <mockito.version>5.20.0</mockito.version>
+        <commons-lang3.version>3.19.0</commons-lang3.version>
+        <jackson.version>2.20.0</jackson.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <logback.version>1.5.18</logback.version>
+
+        <!-- Versiones de plugins -->
+        <maven-enforcer-plugin.version>3.6.1</maven-enforcer-plugin.version>
+        <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
+        <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+        <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+        <maven-shade-plugin.version>3.6.1</maven-shade-plugin.version>
+        <exec-maven-plugin.version>3.6.1</exec-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
+        <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
+        <versions-maven-plugin.version>2.19.1</versions-maven-plugin.version>
     </properties>
 
+    <!-- ================================================================
+         DEPENDENCY MANAGEMENT: fija versiones (normalmente vía BOM =
+         "Bill Of Materials") sin agregar aún las dependencias.
+         Así las dependencias de abajo no necesitan <version>.
+         ================================================================ -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- BOM de JUnit: alinea las versiones de todos sus módulos -->
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- BOM de Jackson -->
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- ================================================================
+         DEPENDENCIAS: librerías que usa el proyecto.
+         Maven las descarga de Maven Central a ~/.m2/repository.
+
+         Scopes (alcances) más comunes:
+           compile  (por defecto) -> disponible en compilación, test y ejecución.
+           test                   -> solo para compilar y ejecutar pruebas.
+           runtime                -> solo en ejecución, no para compilar.
+           provided               -> lo provee el entorno (ej. servidor).
+         ================================================================ -->
+    <dependencies>
+        <!-- ======== Dependencias de la aplicación (scope compile) ======== -->
+
+        <!-- Apache Commons Lang: utilidades para String, números, objetos... -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
+
+        <!-- Jackson: convertir objetos Java <-> JSON (versión tomada del BOM) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- SLF4J: API de logging (fachada) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- Logback: implementación de SLF4J. Solo se necesita al ejecutar -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- ======== Dependencias de pruebas (scope test) ======== -->
+
+        <!-- JUnit Jupiter: framework de pruebas (API + motor + parametrizadas) -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- AssertJ: aserciones fluidas y legibles -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito: crear objetos simulados (mocks) en pruebas -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Integración Mockito + JUnit (@ExtendWith(MockitoExtension.class)) -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!-- ================================================================
+         BUILD: cómo se construye el proyecto. Cada plugin se "engancha"
+         a una fase del ciclo de vida.
+         ================================================================ -->
+    <build>
+        <!-- Nombre final del artefacto (sin extensión) -->
+        <finalName>${project.artifactId}-${project.version}</finalName>
+
+        <!-- Recursos: filtering=true reemplaza ${...} dentro de los archivos de
+             src/main/resources (ej. app.properties recibe la versión del POM) -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
+        <!-- pluginManagement: fija versiones de plugins que se invocan por línea
+             de comandos (mvn dependency:tree, mvn versions:...) -->
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${maven-dependency-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>versions-maven-plugin</artifactId>
+                    <version>${versions-maven-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <!-- 1) ENFORCER (fase validate): exige versiones mínimas de Java y Maven -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-versions</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[${java.version},)</version>
+                                    <message>Este proyecto requiere Java ${java.version} o superior.</message>
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <version>[3.9.0,)</version>
+                                </requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- 2) COMPILER (fase compile / test-compile): compila el código Java -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                    <compilerArgs>
+                        <arg>-Xlint:all</arg> <!-- Muestra todas las advertencias -->
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <!-- 3) SUREFIRE (fase test): ejecuta las pruebas unitarias (*Test.java) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <!-- @{argLine} recibe el agente de JaCoCo; se añade el agente de
+                         Mockito para evitar advertencias en Java 21+ -->
+                    <argLine>@{argLine} -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar -Xshare:off</argLine>
+                </configuration>
+            </plugin>
+
+            <!-- 4) JACOCO: mide la cobertura de código de las pruebas.
+                 Reporte HTML en target/site/jacoco/index.html -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <!-- Prepara el agente antes de las pruebas (define ${argLine}) -->
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <!-- Genera el reporte después de las pruebas -->
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <!-- En "verify" falla el build si la cobertura de líneas < 70% -->
+                    <execution>
+                        <id>check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- 5) JAR (fase package): crea el .jar "delgado" (solo nuestras clases).
+                 Se indica la clase Main en el MANIFEST.MF -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven-jar-plugin.version}</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>${main.class}</mainClass>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- 6) SOURCE (fase package): crea un jar con el código fuente
+                 (Introduction-Maven-1.0-SNAPSHOT-sources.jar) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${maven-source-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- 7) SHADE (fase package): crea un "fat jar" / "uber jar" que incluye
+                 TODAS las dependencias, ejecutable con: java -jar target/*-all.jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven-shade-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Genera un jar adicional con sufijo "-all" -->
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>all</shadedClassifierName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <!-- Define la clase principal en el manifest -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${main.class}</mainClass>
+                                </transformer>
+                                <!-- Fusiona archivos META-INF/services de las dependencias -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <!-- Quita firmas y metadatos que invalidarían el jar -->
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>META-INF/LICENSE*</exclude>
+                                        <exclude>META-INF/NOTICE*</exclude>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- 8) EXEC: ejecuta la aplicación sin empaquetar con: mvn compile exec:java -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec-maven-plugin.version}</version>
+                <configuration>
+                    <mainClass>${main.class}</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- ================================================================
+         PERFILES: configuraciones alternativas que se activan con -P<id>.
+         Ejemplo: mvn package -Prapido  (salta pruebas y cobertura)
+         ================================================================ -->
+    <profiles>
+        <profile>
+            <id>rapido</id>
+            <properties>
+                <skipTests>true</skipTests>
+                <jacoco.skip>true</jacoco.skip>
+            </properties>
+        </profile>
+    </profiles>
 </project>

@@ -1,0 +1,15 @@
+<!-- Configuración de Logback: define el formato y el nivel de los logs -->
+<configuration>
+    <appender name="CONSOLA" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss} %-5level [%logger{0}] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Nivel más detallado para nuestro paquete -->
+    <logger name="org.todtete" level="DEBUG"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLA"/>
+    </root>
+</configuration>
